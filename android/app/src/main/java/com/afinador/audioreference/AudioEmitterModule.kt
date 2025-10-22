@@ -23,18 +23,19 @@ class AudioEmitterModule(reactContext: ReactApplicationContext) : ReactContextBa
         // executa tudo em uma thread separada para não travar o app
         thread {
             try {
-                //calcula quantos samples de áudio são necessários para a duração desejada
+                // Calcula quantos samples de áudio são necessários (igual antes)
                 val numSamples = durationInMillis * SAMPLE_RATE / 1000
                 val buffer = ShortArray(numSamples)
+                val bufferSizeBytes = buffer.size * 2 // Calcula o tamanho em bytes
 
-                // calcula cada ponto da onda sonora para a frequência pedida e o converte para um formato de áudio digital
+                // Gera a onda sonora (igual antes)
                 for (i in 0 until numSamples) {
                     val angle = 2.0 * Math.PI * i / (SAMPLE_RATE / frequency)
                     val sample = (Math.sin(angle) * 32767).toInt().toShort()
                     buffer[i] = sample
                 }
 
-                // configura o player de áudio nativo para tocar áudio com todas as configurações
+                // --- MUDANÇA NA CONFIGURAÇÃO DO AUDIOTRACK ---
                 val audioTrack = AudioTrack.Builder()
                     .setAudioAttributes(
                         AudioAttributes.Builder()
@@ -49,29 +50,40 @@ class AudioEmitterModule(reactContext: ReactApplicationContext) : ReactContextBa
                             .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                             .build()
                     )
-                    .setBufferSizeInBytes(buffer.size * 2) // 2 bytes por Short
+                    // Define o tamanho EXATO do buffer e o MODO ESTÁTICO
+                    .setBufferSizeInBytes(bufferSizeBytes)
+                    .setTransferMode(AudioTrack.MODE_STATIC) // <-- MUDANÇA IMPORTANTE
                     .build()
 
-                // toca o som e libera os recursos
-                audioTrack.play()
-
-                // --- CORREÇÃO: Vamos verificar o resultado do write() ---
+                // --- MUDANÇA NA ORDEM E REMOÇÃO DO STOP ---
+                // 1. Escreve TODO o buffer na memória estática do AudioTrack PRIMEIRO
                 val bytesWritten = audioTrack.write(buffer, 0, numSamples)
 
-                audioTrack.stop()
-                audioTrack.release()
-
                 if (bytesWritten <= 0) {
-                    // Se o write() falhou, nós rejeitamos a promise!
-                    promise.reject("E_AUDIO_WRITE", "Falha ao escrever no buffer de áudio (código de erro: $bytesWritten)")
+                    audioTrack.release() // Libera recursos mesmo se falhar
+                    promise.reject("E_AUDIO_WRITE", "Falha ao escrever no buffer estático (código: $bytesWritten)")
                 } else {
-                    // Só retorne sucesso se os bytes foram escritos
-                    promise.resolve("Som gerado e tocado com sucesso! (Bytes escritos: $bytesWritten)")
+                    // 2. Toca o som (ele vai parar sozinho quando o buffer acabar)
+                    audioTrack.play()
+
+                    // 3. NÃO precisamos mais chamar audioTrack.stop()
+
+                    // 4. Libera os recursos APÓS iniciar a reprodução
+                    // (O som continuará tocando em background mesmo após release em MODE_STATIC)
+                    // Idealmente, você esperaria a duração, mas para simplificar:
+                    audioTrack.play()
+
+                    // Espera o tempo da nota antes de liberar o áudio
+                    Thread.sleep(durationInMillis.toLong())
+
+                    audioTrack.release()
+
+                    promise.resolve("Som tocado com sucesso (espera síncrona).")
                 }
-                // --- FIM DA CORREÇÃO ---
+                // --- FIM DAS MUDANÇAS ---
 
             } catch (e: Exception) {
-                promise.reject("AUDIO_ERROR", "Falha ao gerar o som", e)
+                promise.reject("AUDIO_ERROR", "Falha ao gerar o som estático", e)
             }
         }
     }

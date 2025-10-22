@@ -2,6 +2,7 @@ package com.afinador.audiocapture;
 
 public class FrequencyDetector {
     private static final int SAMPLE_RATE = 44100;
+    private static final short AMPLITUDE_THRESHOLD = 2000;
 
     public FrequencyDetector() {
         // O construtor pode ser usado para pré-calcular tabelas ou inicializar bibliotecas
@@ -18,6 +19,21 @@ public class FrequencyDetector {
 
         int n = readSize; // Ou um tamanho fixo de potência de 2, como 4096
         if (n == 0) return 0.0;
+        // 1. Encontra a amplitude máxima (volume) no buffer atual
+        short maxAmplitude = 0;
+        for (int i = 0; i < n; i++) {
+            // Usa Math.abs para tratar valores negativos corretamente
+            short absValue = (short) Math.abs(buffer[i]);
+            if (absValue > maxAmplitude) {
+                maxAmplitude = absValue;
+            }
+        }
+
+        // 2. Se o som for muito baixo (abaixo do limite), considera como silêncio e não processa.
+        if (maxAmplitude < AMPLITUDE_THRESHOLD) {
+            // Log.d("FrequencyDetector", "Amplitude baixa: " + maxAmplitude + ", ignorando como ruído."); // Opcional: Adicionar Log para debug
+            return 0.0; // Retorna 0 Hz para indicar silêncio ou ruído irrelevante
+        }
 
         double[] real = new double[n];
         double[] imag = new double[n];
@@ -30,11 +46,6 @@ public class FrequencyDetector {
             imag[i] = 0.0;
         }
 
-        // 1. Chamar a biblioteca JTransforms aqui. Exemplo:
-        // DoubleFFT_1D fft = new DoubleFFT_1D(n);
-        // fft.realForward(real); // JTransforms opera no array 'real' diretamente
-
-        // 2. Se for manter a FFT manual (não recomendado):
         fft(real, imag);
 
         // Encontra o pico de magnitude
@@ -51,7 +62,9 @@ public class FrequencyDetector {
                 maxIndex = i;
             }
         }
-
+        if (maxIndex == -1) {
+            return 0.0;
+        }
         // Converte o índice do pico em frequência (Hz)
         return maxIndex * SAMPLE_RATE / (double) n;
     }

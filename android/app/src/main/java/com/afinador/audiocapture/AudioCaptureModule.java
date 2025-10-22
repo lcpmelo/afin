@@ -50,6 +50,7 @@ public class AudioCaptureModule extends ReactContextBaseJavaModule {
 
         AudioRecorderManager.AudioDataListener listener = (buffer, readSize) -> {
             double frequency = frequencyDetector.detectFrequency(buffer, readSize);
+            //android.util.Log.d("AudioCapture", "Frequência detectada: " + frequency);
             sendFrequencyEvent(frequency);
         };
 
