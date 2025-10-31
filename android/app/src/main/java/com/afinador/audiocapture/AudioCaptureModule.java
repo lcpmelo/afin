@@ -1,12 +1,11 @@
 package com.afinador.audiocapture;
 
-// Imports de Permissão e Promise que você já tinha
+// Imports de Permissão e Promise
 import android.Manifest;
 import android.content.pm.PackageManager;
 import androidx.core.content.ContextCompat;
 import com.facebook.react.bridge.Promise;
 
-// Seus imports
 import androidx.annotation.NonNull;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -33,9 +32,8 @@ public class AudioCaptureModule extends ReactContextBaseJavaModule {
         return MODULE_NAME;
     }
 
-    // --- CORREÇÃO 1: MÉTODO START() AGORA USA UMA PROMISE ---
     @ReactMethod
-    public void start(Promise promise) { // Mude de start() para start(Promise promise)
+    public void start(Promise promise) {
 
         // Verifica a permissão (RNF1)
         if (ContextCompat.checkSelfPermission(this.reactContext, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -71,7 +69,7 @@ public class AudioCaptureModule extends ReactContextBaseJavaModule {
         }
     }
 
-    // --- CORREÇÃO 3: ADICIONA O @SuppressWarnings ---
+    // ADICIONA O @SuppressWarnings ---
     @SuppressWarnings("deprecation")
     private void sendFrequencyEvent(double frequency) {
         // Usa o contexto salvo em vez de getReactApplicationContext()
@@ -84,8 +82,7 @@ public class AudioCaptureModule extends ReactContextBaseJavaModule {
         }
     }
 
-    // --- CORREÇÃO 2: ADICIONA O getConstants() ---
-    // Este método exporta a constante "ON_FREQUENCY_EVENT" para o JavaScript
+    // ADICIONA O getConstants() ---
     @Override
     public java.util.Map<String, Object> getConstants() {
         final java.util.Map<String, Object> constants = new java.util.HashMap<>();
@@ -93,5 +90,4 @@ public class AudioCaptureModule extends ReactContextBaseJavaModule {
         constants.put("ON_FREQUENCY_EVENT", "onFrequency");
         return constants;
     }
-    // --- FIM DA CORREÇÃO 2 ---
 }

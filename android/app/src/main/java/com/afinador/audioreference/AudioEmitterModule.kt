@@ -35,7 +35,6 @@ class AudioEmitterModule(reactContext: ReactApplicationContext) : ReactContextBa
                     buffer[i] = sample
                 }
 
-                // --- MUDANÇA NA CONFIGURAÇÃO DO AUDIOTRACK ---
                 val audioTrack = AudioTrack.Builder()
                     .setAudioAttributes(
                         AudioAttributes.Builder()
@@ -52,11 +51,9 @@ class AudioEmitterModule(reactContext: ReactApplicationContext) : ReactContextBa
                     )
                     // Define o tamanho EXATO do buffer e o MODO ESTÁTICO
                     .setBufferSizeInBytes(bufferSizeBytes)
-                    .setTransferMode(AudioTrack.MODE_STATIC) // <-- MUDANÇA IMPORTANTE
+                    .setTransferMode(AudioTrack.MODE_STATIC)
                     .build()
 
-                // --- MUDANÇA NA ORDEM E REMOÇÃO DO STOP ---
-                // 1. Escreve TODO o buffer na memória estática do AudioTrack PRIMEIRO
                 val bytesWritten = audioTrack.write(buffer, 0, numSamples)
 
                 if (bytesWritten <= 0) {
@@ -66,11 +63,6 @@ class AudioEmitterModule(reactContext: ReactApplicationContext) : ReactContextBa
                     // 2. Toca o som (ele vai parar sozinho quando o buffer acabar)
                     audioTrack.play()
 
-                    // 3. NÃO precisamos mais chamar audioTrack.stop()
-
-                    // 4. Libera os recursos APÓS iniciar a reprodução
-                    // (O som continuará tocando em background mesmo após release em MODE_STATIC)
-                    // Idealmente, você esperaria a duração, mas para simplificar:
                     audioTrack.play()
 
                     // Espera o tempo da nota antes de liberar o áudio
@@ -80,7 +72,6 @@ class AudioEmitterModule(reactContext: ReactApplicationContext) : ReactContextBa
 
                     promise.resolve("Som tocado com sucesso (espera síncrona).")
                 }
-                // --- FIM DAS MUDANÇAS ---
 
             } catch (e: Exception) {
                 promise.reject("AUDIO_ERROR", "Falha ao gerar o som estático", e)

@@ -9,7 +9,6 @@ import java.util.Collections
 class AudioCapturePackage : ReactPackage {
 
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-        // "Chefe, aqui está a ferramenta AudioCaptureModule"
         return listOf(AudioCaptureModule(reactContext))
     }
 

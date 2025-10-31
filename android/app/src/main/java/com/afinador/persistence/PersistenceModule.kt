@@ -16,7 +16,6 @@ class PersistenceModule(private val reactContext: ReactApplicationContext) : Rea
 
     override fun getName() = "Persistence"
 
-    //método para salvar os dados
     @ReactMethod
     fun savePreset(name: String, tuningDataJson: String, promise: Promise) { //OBS parâmetros: padronização de tuningDataJson -> {"notes": ["E", "A", "D", "G", "B", "E"], "frequencies": [82.41, 110.0, ...]}
         //novamente usando uma thread separada para não travar o app

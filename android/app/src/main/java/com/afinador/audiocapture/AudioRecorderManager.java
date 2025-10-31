@@ -34,7 +34,7 @@ public class AudioRecorderManager {
         int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
         // Garante que o bufferSize seja adequado para FFT, se necessário (potência de 2)
         // Por simplicidade aqui, usamos o mínimo, mas um buffer maior como 4096 é comum.
-        int recordingBufferSize = Math.max(bufferSize, 4096);
+        int recordingBufferSize = Math.max(bufferSize, 16384);
 
         try {
             audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,

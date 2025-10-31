@@ -117,7 +117,7 @@ const App = () => {
     };
   }, []);
 
-  // --- Função para Tocar Nota de Referência (Modificada) ---
+  // Função para Tocar Nota de Referência
   const tocarNotaReferencia = (freq: number, nomeNota: string) => {
     console.log(`[JS] Tentando tocar ${nomeNota} (${freq}Hz)...`);
     AudioEmitter.playSound(freq, 1500) // Toca por 1.5 segundos
@@ -130,7 +130,7 @@ const App = () => {
       });
   };
 
-  // --- Função Salvar Preset (Modificada para Exemplo) ---
+  // Função Salvar Preset (Modificada)
   const salvarPresetExemplo = () => {
     // Exemplo PRONTO sendo salvo TODA VEZ que clicar
     const presetExemplo = {
@@ -200,7 +200,7 @@ const App = () => {
          </View>
       </View>
 
-      {/* --- NOVA Seção: Botões para Tocar Notas --- */}
+      {/* Botões para Tocar Notas */}
       <Text style={styles.labelSecao}>Tocar Nota de Referência:</Text>
       <View style={styles.notasReferenciaContainer}>
         {Object.entries(NOTAS_REFERENCIA).map(([nomeNota, freq]) => (
