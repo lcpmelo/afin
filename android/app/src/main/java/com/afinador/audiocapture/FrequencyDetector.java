@@ -1,106 +1,146 @@
+// File: com/alltune/audiocapture/FrequencyDetector.java
 package com.afinador.audiocapture;
+
+import org.jtransforms.fft.DoubleFFT_1D;
+import java.util.Arrays; // Importar Arrays
 
 public class FrequencyDetector {
     private static final int SAMPLE_RATE = 44100;
-    private static final short AMPLITUDE_THRESHOLD = 2000;
+    private static final int FFT_SIZE = 16384;
+    private final int FFT_HALF_SIZE = FFT_SIZE / 2;
+
+    // 1. Enum para definir o modo de análise
+    public enum DetectionMode {
+        /**
+         * Encontra o pico de maior magnitude.
+         * Bom para: Flauta, sons puros, voz.
+         */
+        PEAK_PICKING,
+        /**
+         * Usa o Harmonic Product Spectrum para encontrar a frequência fundamental.
+         * Bom para: Guitarra, Baixo, instrumentos com muitos harmónicos.
+         */
+        HPS
+    }
+
+    // 2. Variáveis de membro para o HPS
+    private final DoubleFFT_1D fft;
+    private final double[] fftBuffer;
+    private final double[] magnitudes; // Para guardar as magnitudes da FFT
+    private final double[] hpsSpectrum; // Para calcular o HPS
+    private DetectionMode currentMode = DetectionMode.PEAK_PICKING; // Modo padrão
+
+    // 3. Definir quantos harmónicos o HPS vai verificar
+    private static final int HPS_HARMONICS_COUNT = 4;
+
 
     public FrequencyDetector() {
-        // O construtor pode ser usado para pré-calcular tabelas ou inicializar bibliotecas
+        this.fft = new DoubleFFT_1D(FFT_SIZE);
+        this.fftBuffer = new double[FFT_SIZE];
+
+        // 4. Pré-alocar os arrays para HPS
+        this.magnitudes = new double[FFT_HALF_SIZE];
+        this.hpsSpectrum = new double[FFT_HALF_SIZE];
+    }
+
+    /**
+     * Define o modo de análise de frequência (Pico ou HPS).
+     * Isso deve ser chamado pelo AudioCaptureModule quando o usuário
+     * mudar o instrumento na UI.
+     */
+    public void setMode(DetectionMode mode) {
+        this.currentMode = mode;
     }
 
     /**
      * Analisa um buffer de áudio e retorna a frequência dominante.
-     * @param buffer O buffer de áudio com amostras PCM de 16 bits.
-     * @param readSize O número de amostras válidas no buffer.
-     * @return A frequência dominante detectada em Hz.
+     * O algoritmo usado (Pico ou HPS) depende do modo definido.
      */
     public double detectFrequency(short[] buffer, int readSize) {
-        // TODO: Substituir esta implementação ineficiente pela biblioteca JTransforms.
+        if (readSize == 0) return 0.0;
 
-        int n = readSize; // Ou um tamanho fixo de potência de 2, como 4096
-        if (n == 0) return 0.0;
-        // 1. Encontra a amplitude máxima (volume) no buffer atual
-        short maxAmplitude = 0;
-        for (int i = 0; i < n; i++) {
-            // Usa Math.abs para tratar valores negativos corretamente
-            short absValue = (short) Math.abs(buffer[i]);
-            if (absValue > maxAmplitude) {
-                maxAmplitude = absValue;
-            }
+        // --- PASSO 1: Calcular a FFT (comum a ambos os modos) ---
+        Arrays.fill(fftBuffer, 0.0);
+        int n = FFT_SIZE;
+
+        for (int i = 0; i < readSize && i < n; i++) {
+            double hanningWindow = 0.5 * (1 - Math.cos(2 * Math.PI * i / (readSize - 1)));
+            fftBuffer[i] = (double) buffer[i] * hanningWindow;
         }
 
-        // 2. Se o som for muito baixo (abaixo do limite), considera como silêncio e não processa.
-        if (maxAmplitude < AMPLITUDE_THRESHOLD) {
-            // Log.d("FrequencyDetector", "Amplitude baixa: " + maxAmplitude + ", ignorando como ruído."); // Opcional: Adicionar Log para debug
-            return 0.0; // Retorna 0 Hz para indicar silêncio ou ruído irrelevante
+        fft.realForward(fftBuffer);
+
+        // --- PASSO 2: Chamar o algoritmo de deteção específico ---
+        if (currentMode == DetectionMode.HPS) {
+            return detectFrequencyHPS(n);
+        } else {
+            return detectFrequencyPeakPicking(n);
         }
+    }
 
-        double[] real = new double[n];
-        double[] imag = new double[n];
-
-        // Aplica uma janela (ex: Hanning) para reduzir vazamento espectral (melhora precisão)
-        for (int i = 0; i < n; i++) {
-            // A janela de Hanning é opcional, mas recomendada para precisão
-            double hanningWindow = 0.5 * (1 - Math.cos(2 * Math.PI * i / (n - 1)));
-            real[i] = buffer[i] * hanningWindow;
-            imag[i] = 0.0;
-        }
-
-        fft(real, imag);
-
-        // Encontra o pico de magnitude
+    /**
+     * ALGORITMO 1: Encontra o pico de maior magnitude (o seu código anterior).
+     */
+    private double detectFrequencyPeakPicking(int n) {
+        System.out.println("FFT Mode: Peak Picking");
         double maxMag = -1;
         int maxIndex = -1;
-        // Itera apenas até a metade do array (Teorema de Nyquist)
-        for (int i = 0; i < n / 2; i++) {
-            // Para JTransforms, o resultado é diferente. O valor imaginário estaria em real[2*i+1]
-            // Para a FFT manual, o cálculo é o abaixo:
-            double mag = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]);
+
+        for (int i = 1; i < FFT_HALF_SIZE; i++) {
+            double re = fftBuffer[2 * i];
+            double im = fftBuffer[2 * i + 1];
+            double mag = Math.sqrt(re * re + im * im);
 
             if (mag > maxMag) {
                 maxMag = mag;
                 maxIndex = i;
             }
         }
-        if (maxIndex == -1) {
-            return 0.0;
-        }
-        // Converte o índice do pico em frequência (Hz)
         return maxIndex * SAMPLE_RATE / (double) n;
     }
 
-    // Implementação recursiva de FFT (ineficiente, manter apenas para referência)
-    private void fft(double[] real, double[] imag) {
-        int n = real.length;
-        if (n <= 1) return;
+    /**
+     * ALGORITMO 2: Encontra a frequência fundamental usando HPS.
+     */
+    private double detectFrequencyHPS(int n) {
+        System.out.println("FFT Mode: Harmonic Product Spectrum");
 
-        double[] evenReal = new double[n / 2];
-        double[] evenImag = new double[n / 2];
-        double[] oddReal = new double[n / 2];
-        double[] oddImag = new double[n / 2];
+        // 5. Calcular as magnitudes de cada bin da FFT
+        for (int i = 1; i < FFT_HALF_SIZE; i++) {
+            double re = fftBuffer[2 * i];
+            double im = fftBuffer[2 * i + 1];
+            magnitudes[i] = re * re + im * im; // (Podemos usar magnitude ao quadrado, é mais rápido)
+        }
+        // Limpar o resto do array
+        Arrays.fill(magnitudes, FFT_HALF_SIZE, magnitudes.length, 0.0);
 
-        for (int i = 0; i < n / 2; i++) {
-            evenReal[i] = real[2 * i];
-            evenImag[i] = imag[2 * i];
-            oddReal[i] = real[2 * i + 1];
-            oddImag[i] = imag[2 * i + 1];
+        // 6. Calcular o HPS
+        // Começamos o HPS com o espectro original
+        System.arraycopy(magnitudes, 0, hpsSpectrum, 0, FFT_HALF_SIZE);
+
+        // Iterar e multiplicar pelos harmônicos "espremidos"
+        // O limite da pesquisa é n/2 / HPS_HARMONICS_COUNT
+        int searchLimit = FFT_HALF_SIZE / HPS_HARMONICS_COUNT;
+
+        for (int h = 2; h <= HPS_HARMONICS_COUNT; h++) {
+            for (int i = 1; i < searchLimit; i++) {
+                hpsSpectrum[i] *= magnitudes[i * h];
+            }
         }
 
-        fft(evenReal, evenImag);
-        fft(oddReal, oddImag);
+        // 7. Encontrar o pico no espectro HPS resultante
+        double maxHpsValue = -1;
+        int maxHpsIndex = -1;
 
-        for (int k = 0; k < n / 2; k++) {
-            double angle = -2 * Math.PI * k / n;
-            double cos = Math.cos(angle);
-            double sin = Math.sin(angle);
-
-            double tReal = cos * oddReal[k] - sin * oddImag[k];
-            double tImag = sin * oddReal[k] + cos * oddImag[k];
-
-            real[k] = evenReal[k] + tReal;
-            imag[k] = evenImag[k] + tImag;
-            real[k + n / 2] = evenReal[k] - tReal;
-            imag[k + n / 2] = evenImag[k] - tImag;
+        // Procuramos apenas na faixa onde calculamos (até searchLimit)
+        for (int i = 1; i < searchLimit; i++) {
+            if (hpsSpectrum[i] > maxHpsValue) {
+                maxHpsValue = hpsSpectrum[i];
+                maxHpsIndex = i;
+            }
         }
+
+        // 8. Converter o índice HPS em frequência
+        return maxHpsIndex * SAMPLE_RATE / (double) n;
     }
 }
