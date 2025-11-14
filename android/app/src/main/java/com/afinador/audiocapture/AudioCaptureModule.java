@@ -92,7 +92,7 @@ public class AudioCaptureModule extends ReactContextBaseJavaModule {
     public void setInstrumentMode(String mode) {
         if (frequencyDetector == null) return;
 
-        if ("guitar".equals(mode) || "bass".equals(mode)) {
+        if ("Guitarra".equals(mode) || "Baixo".equals(mode) || "Violão".equals(mode)) {
             frequencyDetector.setMode(FrequencyDetector.DetectionMode.HPS);
         } else {
             frequencyDetector.setMode(FrequencyDetector.DetectionMode.PEAK_PICKING);
