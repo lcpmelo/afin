@@ -267,9 +267,8 @@
 // });
 //
 // export default App;
-
-
-import React, { useState, useEffect } from 'react';import {
+import React, { useState, useEffect } from 'react';
+import {
   SafeAreaView,
   StyleSheet,
   Text,
@@ -284,30 +283,20 @@ import React, { useState, useEffect } from 'react';import {
   TextInput,
 } from 'react-native';
 
-// Módulos Nativos (se houver)
-// const { AudioCapture, AudioEmitter, Persistence } = NativeModules;
+// --- MÓDULOS E FUNÇÕES GLOBAIS (RESTAURADOS) ---
 
-// --- DEFINIÇÕES GLOBAIS ---
+// 1. Módulos Nativos Descomentados
+const { AudioCapture, AudioEmitter, Persistence } = NativeModules;
 
 // A lista de presets que vem com o app.
 const AFINACOES_INICIAIS: { [instrumento: string]: { [preset: string]: string[] } } = {
-  Guitarra: {
-    'Padrão': ['E4', 'B3', 'G3', 'D3', 'A2', 'E2'],
-    'Drop D': ['E4', 'B3', 'G3', 'D3', 'A2', 'D2'],
-  },
-  Violão: {
-    'Padrão': ['E4', 'B3', 'G3', 'D3', 'A2', 'E2'],
-  },
-  Baixo: {
-    '4 Cordas': ['G2', 'D2', 'A1', 'E1'],
-  },
-  Flauta: {
-    'Cromático': [],
-  },
+  Guitarra: { 'Padrão': ['E4', 'B3', 'G3', 'D3', 'A2', 'E2'], 'Drop D': ['E4', 'B3', 'G3', 'D3', 'A2', 'D2'], },
+  Violão: { 'Padrão': ['E4', 'B3', 'G3', 'D3', 'A2', 'E2'], },
+  Baixo: { '4 Cordas': ['G2', 'D2', 'A1', 'E1'], },
+  Flauta: { 'Cromático': [], },
 };
 
-// *** LÓGICA CORRIGIDA E SIMPLIFICADA ***
-// Lista fixa de nomes de presets que são padrão e não podem ser alterados/excluídos.
+// Lista fixa de nomes de presets que são padrão.
 const NOMES_PRESETS_PADRAO = ['Padrão', 'Drop D', '4 Cordas', 'Cromático'];
 
 const INSTRUMENTOS = Object.keys(AFINACOES_INICIAIS);
@@ -316,6 +305,42 @@ const ehNotaValida = (nota: string): boolean => {
   const notaRegex = /^[A-G](b|#)?[0-8]?$/i;
   return notaRegex.test(nota.trim());
 };
+
+// 2. Função frequencyToNote Adicionada
+const frequencyToNote = (freq: number): string => {
+  if (freq < 10) return '--';
+
+  const notes: { [key: string]: number } = {
+    'E2': 82.41, 'F2': 87.31, 'F#2': 92.50, 'G2': 98.00, 'G#2': 103.83,
+    'A2': 110.00, 'A#2': 116.54, 'B2': 123.47,
+    'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81,
+    'F3': 174.61, 'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65,
+    'A3': 220.00, 'A#3': 233.08, 'B3': 246.94,
+    'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63,
+    'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30,
+    'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
+    'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25,
+  };
+
+  let closestNote = '--';
+  let minDiff = Infinity;
+
+  for (const note in notes) {
+    const diff = Math.abs(freq - notes[note]);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closestNote = note;
+    }
+  }
+
+  const tolerance = notes[closestNote] * 0.05;
+  if (minDiff > tolerance) {
+      return '--';
+  }
+
+  return closestNote;
+};
+
 
 // --- COMPONENTE PRINCIPAL ---
 
@@ -331,8 +356,31 @@ const App = () => {
   const [novoPresetNotas, setNovoPresetNotas] = useState<string[]>(['']);
 
   // --- EFEITOS ---
+
+  // 3. useEffect de Captura de Áudio Restaurado
   useEffect(() => {
-    // Lógica de captura de áudio pode ser ativada aqui
+    const frequencyListener = DeviceEventEmitter.addListener(
+      AudioCapture.ON_FREQUENCY_EVENT,
+      (event) => {
+        if (event.frequency) {
+          const detectedNote = frequencyToNote(event.frequency);
+          setNotaAtual(detectedNote);
+        }
+      }
+    );
+
+    AudioCapture.start()
+      .then(() => console.log("[JS] Microfone ligado com sucesso!"))
+      .catch((error: any) => {
+        console.error("[JS] Falha ao ligar microfone: ", error);
+        Alert.alert("Erro de Microfone", "Não foi possível iniciar a captura de áudio. Verifique as permissões.");
+      });
+
+    return () => {
+      console.log("[JS] Desligando microfone...");
+      AudioCapture.stop();
+      frequencyListener.remove();
+    };
   }, []);
 
   // Efeito que garante que sempre haja um preset válido selecionado
@@ -344,7 +392,7 @@ const App = () => {
     setNotaAlvo(null);
   }, [instrumentoSelecionado, presetsUsuario]);
 
-  // --- FUNÇÕES DE MANIPULAÇÃO DE PRESETS (LÓGICA REFINADA) ---
+  // --- FUNÇÕES DE MANIPULAÇÃO DE PRESETS ---
 
   const abrirModalParaCriar = () => {
     setNovoPresetNome('');
@@ -358,14 +406,10 @@ const App = () => {
       return Alert.alert('Erro', 'Por favor, dê um nome para a sua afinação.');
     }
 
-    // *** LÓGICA CORRIGIDA E DEFINITIVA ***
-    // A única restrição é usar o nome de um preset padrão.
-    // Você PODE sobrescrever um preset que você mesmo criou.
     if (NOMES_PRESETS_PADRAO.includes(nomeLimpo)) {
       return Alert.alert('Nome Inválido', `O nome "${nomeLimpo}" é reservado para um preset padrão e não pode ser usado.`);
     }
 
-    // Validação das notas
     const notasFormatadas = novoPresetNotas.map(nota => nota.trim().toUpperCase()).filter(nota => nota !== '');
     if (notasFormatadas.length === 0) {
       return Alert.alert('Erro', 'Adicione pelo menos uma nota para salvar a afinação.');
@@ -375,7 +419,6 @@ const App = () => {
       return Alert.alert('Notas Inválidas', `As seguintes notas não são válidas: ${notasInvalidas.join(', ')}`);
     }
 
-    // Salva ou sobrescreve o preset no estado
     setPresetsUsuario(prev => {
       const novosPresets = { ...prev };
       if (!novosPresets[instrumentoSelecionado]) {
@@ -392,7 +435,6 @@ const App = () => {
   const handleExcluirPreset = () => {
     const nomePresetParaExcluir = presetSelecionado;
 
-    // A verificação de segurança agora usa a lista de nomes padrão.
     if (NOMES_PRESETS_PADRAO.includes(nomePresetParaExcluir)) {
       return Alert.alert('Ação Bloqueada', 'Não é possível excluir um preset padrão.');
     }
@@ -414,7 +456,6 @@ const App = () => {
                 [instrumentoSelecionado]: novosPresetsParaInstrumento,
               };
             });
-            // O useEffect cuidará de selecionar um novo preset válido automaticamente
           },
         },
       ]
@@ -424,8 +465,6 @@ const App = () => {
   // --- LÓGICA DE RENDERIZAÇÃO ---
   const presetsDoInstrumentoAtual = Object.keys(presetsUsuario[instrumentoSelecionado] || {});
   const notasDoPresetAtual = presetsUsuario[instrumentoSelecionado]?.[presetSelecionado] || [];
-
-  // Esta verificação agora é 100% confiável para controlar a UI.
   const isPresetSelecionadoPadrao = NOMES_PRESETS_PADRAO.includes(presetSelecionado);
 
   return (
@@ -492,7 +531,6 @@ const App = () => {
           ))}
         </ScrollView>
         <View style={styles.actionsContainer}>
-          {/* O Botão de Excluir SÓ APARECE se o preset SELECIONADO for personalizado */}
           {!isPresetSelecionadoPadrao && (
             <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={handleExcluirPreset}>
               <Text style={styles.actionButtonText}>-</Text>
@@ -523,7 +561,8 @@ const App = () => {
   );
 };
 
-// Estilos
+
+// Estilos (sem alterações)
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#121212', alignItems: 'center' },
     tituloApp: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginVertical: 15 },
