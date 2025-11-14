@@ -18,11 +18,12 @@ public class AudioCaptureModule extends ReactContextBaseJavaModule {
     private static final String MODULE_NAME = "AudioCapture";
     private AudioRecorderManager recorderManager;
     private final FrequencyDetector frequencyDetector;
-    private final ReactApplicationContext reactContext; // --- CORREÇÃO: Salva o contexto
+    private final ReactApplicationContext reactContext;
+    private static final double AMPLITUDE_THRESHOLD = 500.0;
 
     public AudioCaptureModule(@NonNull ReactApplicationContext reactContext) {
         super(reactContext);
-        this.reactContext = reactContext; // --- CORREÇÃO: Salva o contexto
+        this.reactContext = reactContext;
         this.frequencyDetector = new FrequencyDetector();
     }
 
@@ -42,20 +43,25 @@ public class AudioCaptureModule extends ReactContextBaseJavaModule {
         }
 
         if (recorderManager != null && recorderManager.isRecording()) {
-            promise.resolve(true); // Já está gravando
+            promise.resolve(true);
             return;
         }
 
         AudioRecorderManager.AudioDataListener listener = (buffer, readSize) -> {
+            if (!isSignalStrongEnough(buffer, readSize)) {
+                sendFrequencyEvent(0.0); // Envia 0 (ou nem envia) se for só ruído
+                return; // Para a execução aqui
+            }
+
             double frequency = frequencyDetector.detectFrequency(buffer, readSize);
-            //android.util.Log.d("AudioCapture", "Frequência detectada: " + frequency);
+            android.util.Log.d("AudioCapture", "Frequência detectada: " + frequency);
             sendFrequencyEvent(frequency);
         };
 
         try {
             recorderManager = new AudioRecorderManager(listener);
             recorderManager.startRecording();
-            promise.resolve(true); // Sucesso!
+            promise.resolve(true);
         } catch (Exception e) {
             promise.reject("E_START_FAILED", "Não foi possível iniciar a gravação.", e);
         }
@@ -80,6 +86,30 @@ public class AudioCaptureModule extends ReactContextBaseJavaModule {
                     .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                     .emit("onFrequency", params); // O nome do evento é "onFrequency"
         }
+    }
+
+    @ReactMethod
+    public void setInstrumentMode(String mode) {
+        if (frequencyDetector == null) return;
+
+        if ("guitar".equals(mode) || "bass".equals(mode)) {
+            frequencyDetector.setMode(FrequencyDetector.DetectionMode.HPS);
+        } else {
+            frequencyDetector.setMode(FrequencyDetector.DetectionMode.PEAK_PICKING);
+        }
+    }
+
+    private boolean isSignalStrongEnough(short[] buffer, int readSize) {
+        if (readSize == 0) return false;
+
+        double sumOfSquares = 0.0;
+        for (int i = 0; i < readSize; i++) {
+            sumOfSquares += buffer[i] * buffer[i];
+        }
+        // Calcula a média dos quadrados e tira a raiz (RMS)
+        double rms = Math.sqrt(sumOfSquares / readSize);
+
+        return rms > AMPLITUDE_THRESHOLD;
     }
 
     // ADICIONA O getConstants() ---
