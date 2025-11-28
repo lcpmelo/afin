@@ -1,273 +1,5 @@
-// import React, { useState, useEffect } from 'react';
-// import {
-//   SafeAreaView,
-//   StyleSheet,
-//   Text,
-//   View,
-//   TouchableOpacity,
-//   StatusBar,
-//   NativeModules,
-//   DeviceEventEmitter,
-//   Alert
-// } from 'react-native';
-//
-// // Importa os Módulos Nativos com os Nomes Corretos
-// const { AudioCapture, AudioEmitter, Persistence } = NativeModules;
-//
-// // Lista de instrumentos (mantida)
-// const INSTRUMENTOS = ['Guitarra', 'Violão', 'Flauta', 'Baixo'];
-//
-// // Função para converter frequência em nota (REMOVIDO O OFFSET de afinação)
-// const frequencyToNote = (freq: number): string => {
-//   if (freq < 10) return '--'; // Ignora ruído baixo
-//
-//   // Tabela de frequências (simplificada - precisa ser expandida!)
-//   // Idealmente, use uma fórmula ou tabela completa
-//   const notes: { [key: string]: number } = {
-//     'E2': 82.41, 'F2': 87.31, 'F#2': 92.50, 'G2': 98.00, 'G#2': 103.83,
-//     'A2': 110.00, 'A#2': 116.54, 'B2': 123.47,
-//     'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81,
-//     'F3': 174.61, 'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65,
-//     'A3': 220.00, 'A#3': 233.08, 'B3': 246.94,
-//     'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63,
-//     'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30,
-//     'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
-//     'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25,
-//     // Adicionar mais notas conforme necessário
-//   };
-//
-//   let closestNote = '--';
-//   let minDiff = Infinity;
-//
-//   // Encontra a nota mais próxima
-//   for (const note in notes) {
-//     const diff = Math.abs(freq - notes[note]);
-//     if (diff < minDiff) {
-//       minDiff = diff;
-//       closestNote = note;
-//     }
-//   }
-//
-//   // Define um limite de quão longe a frequência pode estar da nota alvo
-//   // Se estiver muito longe, provavelmente é ruído ou entre notas.
-//   const tolerance = notes[closestNote] * 0.05; // Tolerância de 5% (ajustar)
-//   if (minDiff > tolerance) {
-//       return '--'; // Muito desafinado ou ruído
-//   }
-//
-//   return closestNote;
-// };
-//
-// // Objeto com as notas de referência e suas frequências
-// const NOTAS_REFERENCIA: { [key: string]: number } = {
-//   'E2': 82.41,
-//   'A2': 110.00,
-//   'D3': 146.83,
-//   'G3': 196.00,
-//   'B3': 246.94,
-//   'E4': 329.63,
-//   'A4': 440.00, // Adicionando o Lá padrão
-// };
-//
-//
-// const App = () => {
-//   const [instrumentoSelecionado, setInstrumentoSelecionado] = useState('Guitarra');
-//   const [notaAtual, setNotaAtual] = useState('--');
-//   // O estado 'afinacao' não é mais usado para o texto, mas ainda pode ser útil para o ponteiro
-//   const [afinacaoOffset, setAfinacaoOffset] = useState(0);
-//
-//   useEffect(() => {
-//     const frequencyListener = DeviceEventEmitter.addListener(
-//       AudioCapture.ON_FREQUENCY_EVENT,
-//       (event) => {
-//         const detectedNote = frequencyToNote(event.frequency);
-//         setNotaAtual(detectedNote);
-//
-//         // Opcional: Calcular o offset para o ponteiro visual (se ainda for usar)
-//         // Esta lógica precisa ser mais robusta no futuro
-//         if (detectedNote !== '--' && NOTAS_REFERENCIA[detectedNote]) {
-//             const targetFreq = NOTAS_REFERENCIA[detectedNote];
-//             const diffRatio = event.frequency / targetFreq;
-//             if (diffRatio < 0.98) setAfinacaoOffset(-1);
-//             else if (diffRatio > 1.02) setAfinacaoOffset(1);
-//             else setAfinacaoOffset(0);
-//         } else {
-//             setAfinacaoOffset(0); // Reset offset if no clear note
-//         }
-//
-//         // console.log(`[JS] Freq: ${event.frequency.toFixed(2)} -> Nota: ${detectedNote}`);
-//       }
-//     );
-//
-//     AudioCapture.start()
-//       .then(() => console.log("[JS] Microfone ligado com sucesso!"))
-//       .catch((error: any) => {
-//         console.error("[JS] Falha ao ligar microfone: ", error.message);
-//         if (error.code === 'E_NO_PERMISSION') {
-//           Alert.alert("Permissão Necessária", "Precisamos de acesso ao microfone.");
-//         } else {
-//           Alert.alert("Erro", "Não foi possível iniciar a captura de áudio.");
-//         }
-//       });
-//
-//     return () => {
-//       console.log("[JS] Desligando microfone...");
-//       AudioCapture.stop();
-//       frequencyListener.remove();
-//     };
-//   }, []);
-//
-//   // Função para Tocar Nota de Referência
-//   const tocarNotaReferencia = (freq: number, nomeNota: string) => {
-//     console.log(`[JS] Tentando tocar ${nomeNota} (${freq}Hz)...`);
-//     AudioEmitter.playSound(freq, 1500) // Toca por 1.5 segundos
-//       .then((resultado: string) => {
-//         console.log(`[JS] Sucesso ${nomeNota}: ${resultado}`);
-//       })
-//       .catch((error: any) => {
-//         console.error(`[JS] Falha ${nomeNota}: ${error.message}`);
-//         Alert.alert("Erro", `Não foi possível tocar ${nomeNota}.`);
-//       });
-//   };
-//
-//   // Função Salvar Preset (Modificada)
-//   const salvarPresetExemplo = () => {
-//     // Exemplo PRONTO sendo salvo TODA VEZ que clicar
-//     const presetExemplo = {
-//       nome: "Meu Preset Teste",
-//       instrumento: instrumentoSelecionado, // Pode usar o estado atual
-//       notas: ["C4", "G4", "E4"],
-//       timestamp: new Date().toISOString() // Adiciona data/hora para diferenciar
-//     };
-//     const presetJson = JSON.stringify(presetExemplo, null, 2); // null, 2 para formatar bonito
-//
-//     // Mostra no debugger o que será salvo
-//     console.log("[JS] --- SALVANDO PRESET EXEMPLO ---");
-//     console.log(presetJson); // <--- Mostra no console/debugger
-//     console.log("[JS] -----------------------------");
-//
-//     Persistence.savePreset("PresetExemplo", presetJson) // Salva sempre com o mesmo nome (ou use timestamp)
-//       .then(() => {
-//         console.log("[JS] Sucesso: Preset EXEMPLO salvo!");
-//         Alert.alert("Sucesso", `Preset Exemplo salvo (verifique o console)!`);
-//       })
-//       .catch((error: any) => {
-//         console.error("[JS] Falha ao salvar preset exemplo: ", error.message);
-//         Alert.alert("Erro", "Não foi possível salvar o preset exemplo.");
-//       });
-//   };
-//
-//
-//   const renderizarBotoesInstrumento = () => {
-//      return INSTRUMENTOS.map((instrumento) => (
-//       <TouchableOpacity
-//         key={instrumento}
-//         style={[
-//           styles.botaoInstrumento,
-//           instrumentoSelecionado === instrumento && styles.botaoInstrumentoSelecionado,
-//         ]}
-//         onPress={() => setInstrumentoSelecionado(instrumento)}
-//       >
-//         <Text style={styles.textoBotaoInstrumento}>{instrumento}</Text>
-//       </TouchableOpacity>
-//     ));
-//   };
-//
-//
-//   return (
-//     <SafeAreaView style={styles.container}>
-//       <StatusBar barStyle="light-content" />
-//       <Text style={styles.tituloApp}>Afinador</Text>
-//
-//       <View style={styles.seletorInstrumentos}>
-//         {renderizarBotoesInstrumento()}
-//       </View>
-//
-//       {/* Visor Principal (REMOVIDO o texto de afinação) */}
-//       <View style={styles.visorContainer}>
-//          <Text style={styles.textoNota}>{notaAtual}</Text>
-//          {/* <Text style={styles.textoAfinacao}> ... </Text>  <-- REMOVIDO */}
-//
-//          {/* Barra Indicadora de Afinação (Mantida, usa afinacaoOffset) */}
-//          <View style={styles.indicadorBarraContainer}>
-//            <View
-//              style={[
-//                styles.indicadorPonto,
-//                { transform: [{ translateX: Math.max(-70, Math.min(70, afinacaoOffset * 60)) }] }
-//              ]}
-//            />
-//            <View style={styles.indicadorCentro} />
-//          </View>
-//       </View>
-//
-//       {/* Botões para Tocar Notas */}
-//       <Text style={styles.labelSecao}>Tocar Nota de Referência:</Text>
-//       <View style={styles.notasReferenciaContainer}>
-//         {Object.entries(NOTAS_REFERENCIA).map(([nomeNota, freq]) => (
-//           <TouchableOpacity
-//             key={nomeNota}
-//             style={styles.botaoNota}
-//             onPress={() => tocarNotaReferencia(freq, nomeNota)}
-//           >
-//             <Text style={styles.textoBotaoInstrumento}>{nomeNota}</Text>
-//           </TouchableOpacity>
-//         ))}
-//       </View>
-//
-//       {/* --- Botão Salvar Preset (Chama a nova função) --- */}
-//       <View style={styles.acoesContainer}>
-//         <TouchableOpacity style={styles.botaoAcao} onPress={salvarPresetExemplo}>
-//           <Text style={styles.textoBotaoInstrumento}>Salvar Preset Exemplo</Text>
-//         </TouchableOpacity>
-//       </View>
-//
-//     </SafeAreaView>
-//   );
-// };
-//
-// // --- ESTILOS (Adicionado estilos para os botões de nota) ---
-// const styles = StyleSheet.create({
-//   container: { /* ... (igual antes) ... */ flex: 1, backgroundColor: '#121212', alignItems: 'center', paddingTop: 40, paddingHorizontal: 10 },
-//   tituloApp: { /* ... */ fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 20 },
-//   seletorInstrumentos: { /* ... */ flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginBottom: 30 },
-//   botaoInstrumento: { /* ... */ paddingVertical: 10, paddingHorizontal: 15, borderRadius: 20, backgroundColor: '#333333' },
-//   botaoInstrumentoSelecionado: { /* ... */ backgroundColor: '#1DB954' },
-//   textoBotaoInstrumento: { /* ... */ color: '#FFFFFF', fontWeight: '600' },
-//   visorContainer: { /* ... */ width: 250, height: 250, borderRadius: 125, backgroundColor: '#1E1E1E', justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: '#333333', marginBottom: 30, },
-//   textoNota: { /* ... */ fontSize: 100, fontWeight: 'bold', color: '#FFFFFF' },
-//   // textoAfinacao removido visualmente
-//   indicadorBarraContainer: { /* ... */ width: 150, height: 4, backgroundColor: '#444', borderRadius: 2, marginTop: 15, justifyContent: 'center', alignItems: 'center' },
-//   indicadorPonto: { /* ... */ width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFFFFF', position: 'absolute' },
-//   indicadorCentro: { /* ... */ width: 4, height: 20, backgroundColor: '#1DB954', position: 'absolute' },
-//   acoesContainer: { /* ... */ flexDirection: 'row', marginTop: 30, width: '80%', justifyContent: 'space-around' },
-//   botaoAcao: { /* ... */ backgroundColor: '#1DB954', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 25 },
-//   // --- Novos Estilos ---
-//   labelSecao: {
-//     fontSize: 16,
-//     color: '#CCCCCC',
-//     marginTop: 20,
-//     marginBottom: 10,
-//     alignSelf: 'flex-start', // Alinha à esquerda
-//     marginLeft: '10%',      // Adiciona margem
-//   },
-//   notasReferenciaContainer: {
-//     flexDirection: 'row',
-//     flexWrap: 'wrap', // Permite que os botões quebrem linha
-//     justifyContent: 'center', // Centraliza os botões na linha
-//     width: '90%', // Usa a largura disponível
-//     marginBottom: 20,
-//   },
-//   botaoNota: {
-//     backgroundColor: '#333333',
-//     paddingVertical: 10,
-//     paddingHorizontal: 15,
-//     borderRadius: 20,
-//     margin: 5, // Espaçamento entre os botões
-//   },
-// });
-//
-// export default App;
-import React, { useState, useEffect } from 'react';
+// App.tsx
+import React, { useState, useEffect, useRef } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -306,7 +38,7 @@ const ehNotaValida = (nota: string): boolean => {
   return notaRegex.test(nota.trim());
 };
 
-// 2. Função frequencyToNote Adicionada
+// 2. Função frequencyToNote Adicionada (busca nota próxima dentro de tolerância)
 const frequencyToNote = (freq: number): string => {
   if (freq < 10) return '--';
 
@@ -355,6 +87,59 @@ const frequencyToNote = (freq: number): string => {
   return closestNote;
 };
 
+// -----------------------------
+// Mapa auxiliar de frequências (usado para cálculo de cents)
+// -----------------------------
+const notesFrequencies: { [key: string]: number } = {
+  'C0': 16.35, 'C#0': 17.32, 'D0': 18.35, 'D#0': 19.45, 'E0': 20.60,
+  'F0': 21.83, 'F#0': 23.12, 'G0': 24.50, 'G#0': 25.96, 'A0': 27.50,
+  'A#0': 29.14, 'B0': 30.87,
+
+  'C1': 32.70, 'C#1': 34.65, 'D1': 36.71, 'D#1': 38.89, 'E1': 41.20,
+  'F1': 43.65, 'F#1': 46.25, 'G1': 49.00, 'G#1': 51.91, 'A1': 55.00,
+  'A#1': 58.27, 'B1': 61.74,
+
+  'C2': 65.41, 'C#2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'E2': 82.41,
+  'F2': 87.31, 'F#2': 92.50, 'G2': 98.00, 'G#2': 103.83, 'A2': 110.00,
+  'A#2': 116.54, 'B2': 123.47,
+
+  'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81,
+  'F3': 174.61, 'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'A3': 220.00,
+  'A#3': 233.08, 'B3': 246.94,
+
+  'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63,
+  'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.00,
+  'A#4': 466.16, 'B4': 493.88,
+
+  'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25,
+  'F5': 698.46, 'F#5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'A5': 880.00,
+  'A#5': 932.33, 'B5': 987.77,
+
+  'C6': 1046.50, 'C#6': 1108.73, 'D6': 1174.66, 'D#6': 1244.51, 'E6': 1318.51,
+  'F6': 1396.91, 'F#6': 1479.98, 'G6': 1567.98, 'G#6': 1661.22, 'A6': 1760.00,
+  'A#6': 1864.66, 'B6': 1975.53,
+};
+
+// Função para calcular diferença em cents entre duas frequências
+const getCentsDiff = (freq: number, targetFreq: number): number => {
+  if (!freq || !targetFreq) return 0;
+  return 1200 * Math.log2(freq / targetFreq);
+};
+
+// --- NOVAS FUNÇÕES: conversão MIDI / nome de nota (usadas no modo livre) ---
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+/** Retorna número MIDI (float) para uma frequência */
+const freqToMidiFloat = (freq: number): number => {
+  return 69 + 12 * Math.log2(freq / 440);
+};
+
+/** Retorna nome de nota (ex: "A4") a partir de um número MIDI inteiro */
+const midiToNoteName = (midi: number): string => {
+  const note = NOTE_NAMES[(midi % 12 + 12) % 12];
+  const octave = Math.floor(midi / 12) - 1;
+  return `${note}${octave}`;
+};
 
 // --- COMPONENTE PRINCIPAL ---
 
@@ -362,8 +147,14 @@ const App = () => {
   // --- ESTADOS ---
   const [presetsUsuario, setPresetsUsuario] = useState(AFINACOES_INICIAIS);
   const [instrumentoSelecionado, setInstrumentoSelecionado] = useState('Guitarra');
-  AudioCapture.setInstrumentMode(instrumentoSelecionado);
-  console.log(instrumentoSelecionado)
+
+  // chama modo do instrumento apenas quando muda (evita chamada em todo render)
+  useEffect(() => {
+    if (AudioCapture && typeof AudioCapture.setInstrumentMode === 'function') {
+      AudioCapture.setInstrumentMode(instrumentoSelecionado);
+    }
+  }, [instrumentoSelecionado]);
+
   const [presetSelecionado, setPresetSelecionado] = useState('Padrão');
   const [notaAlvo, setNotaAlvo] = useState<string | null>(null);
   const [notaAtual, setNotaAtual] = useState('--');
@@ -371,33 +162,93 @@ const App = () => {
   const [novoPresetNome, setNovoPresetNome] = useState('');
   const [novoPresetNotas, setNovoPresetNotas] = useState<string[]>(['']);
 
+  // estado para cents (desvio) usado na barra
+  const [cents, setCents] = useState<number>(0);
+
+  // mostra se a nota detectada está afinada, aguda ou grave (modo livre)
+  const [statusTexto, setStatusTexto] = useState<string>('');
+
+  // ref para manter notaAlvo atual dentro do listener sem recriar o listener
+  const notaAlvoRef = useRef<string | null>(notaAlvo);
+  useEffect(() => { notaAlvoRef.current = notaAlvo; }, [notaAlvo]);
+
   // --- EFEITOS ---
 
-  // 3. useEffect de Captura de Áudio Restaurado
+  // Listener de frequência: calcula nota atual e cents dependendo do modo (alvo selecionada ou livre)
   useEffect(() => {
     const frequencyListener = DeviceEventEmitter.addListener(
       AudioCapture.ON_FREQUENCY_EVENT,
       (event) => {
-        if (event.frequency) {
-          const detectedNote = frequencyToNote(event.frequency);
-          setNotaAtual(detectedNote);
+        if (!event || !event.frequency) return;
+        const freq: number = event.frequency;
+
+        // --- MODO LIVRE: detectar nota automaticamente e calcular cents relativos à nota mais próxima ---
+        const currentNotaAlvo = notaAlvoRef.current;
+        if (!currentNotaAlvo) {
+          // calcula MIDI (float) e arredonda para nota mais próxima
+          const midiFloat = freqToMidiFloat(freq);
+          const midiRound = Math.round(midiFloat);
+          const idealFreq = 440 * Math.pow(2, (midiRound - 69) / 12);
+          const centsDiff = 1200 * Math.log2(freq / idealFreq);
+
+          // atualiza nota atual no formato "C4"
+          const notaDetectada = midiToNoteName(midiRound);
+          setNotaAtual(notaDetectada);
+
+          // limita para barra visual (ex: -50..+50)
+          const limited = Math.max(-50, Math.min(50, centsDiff));
+          setCents(limited);
+
+          // status textual: afinada / aguda / grave (threshold = 5 cents)
+          const absC = Math.abs(centsDiff);
+          if (absC <= 5) {
+            setStatusTexto('Afinada');
+          } else if (centsDiff > 0) {
+            setStatusTexto('Mais aguda');
+          } else {
+            setStatusTexto('Mais grave');
+          }
+
+          // debug
+          console.log('[TUNER][LIVRE] freq:', freq.toFixed(2), 'note:', notaDetectada, 'cents:', centsDiff.toFixed(1));
+        } else {
+          // --- MODO COM NOTA ALVO SELECIONADA: calcula diferencia para a nota alvo (mantém seu comportamento) ---
+          const targetFreq = notesFrequencies[currentNotaAlvo];
+          setNotaAtual(frequencyToNote(freq)); // mostra nota próxima (se houver)
+          if (targetFreq) {
+            const diff = getCentsDiff(freq, targetFreq);
+            const limited = Math.max(-50, Math.min(50, diff));
+            setCents(limited);
+
+            // status para modo com nota alvo
+            const absD = Math.abs(diff);
+            if (absD <= 5) setStatusTexto('Afinada');
+            else if (diff > 0) setStatusTexto('Mais aguda');
+            else setStatusTexto('Mais grave');
+
+            console.log('[TUNER][ALVO] freq:', freq.toFixed(2), 'targetFreq:', targetFreq.toFixed(2), 'cents:', diff.toFixed(1));
+          } else {
+            setCents(0);
+            setStatusTexto('');
+          }
         }
       }
     );
 
-    AudioCapture.start()
-      .then(() => console.log("[JS] Microfone ligado com sucesso!"))
-      .catch((error: any) => {
+    // tenta iniciar captura
+    AudioCapture.start?.()
+      ?.then(() => console.log("[JS] Microfone ligado com sucesso!"))
+      ?.catch((error: any) => {
         console.error("[JS] Falha ao ligar microfone: ", error);
         Alert.alert("Erro de Microfone", "Não foi possível iniciar a captura de áudio. Verifique as permissões.");
       });
 
     return () => {
       console.log("[JS] Desligando microfone...");
-      AudioCapture.stop();
+      AudioCapture.stop?.();
       frequencyListener.remove();
     };
-  }, []);
+  }, []); // listener criado uma vez
 
   // Efeito que garante que sempre haja um preset válido selecionado
   useEffect(() => {
@@ -405,6 +256,7 @@ const App = () => {
     if (!presetsDisponiveis.includes(presetSelecionado)) {
       setPresetSelecionado(presetsDisponiveis[0] || '');
     }
+    // manter modo livre ao trocar instrumento: zera notaAlvo
     setNotaAlvo(null);
   }, [instrumentoSelecionado, presetsUsuario]);
 
@@ -483,6 +335,16 @@ const App = () => {
   const notasDoPresetAtual = presetsUsuario[instrumentoSelecionado]?.[presetSelecionado] || [];
   const isPresetSelecionadoPadrao = NOMES_PRESETS_PADRAO.includes(presetSelecionado);
 
+  // mapeamento para posição da agulha (0..100 %)
+  const indicatorPercent = (() => {
+    // cents no estado ∈ [-50,50]; mapeamos para 0..100
+    const p = 50 + (cents);
+    const clamped = Math.max(0, Math.min(100, p));
+    return Math.round(clamped * 10) / 10; // uma casa
+  })();
+
+  // cor da agulha dependendo da proximidade (verde se afinada)
+  const indicatorColor = Math.abs(cents) <= 5 ? '#1DB954' : '#FFB300'; // verde quando afinada, amarelo quando não
 
   return (
     <SafeAreaView style={styles.container}>
@@ -562,7 +424,34 @@ const App = () => {
       {/* Visor e Lista de Notas */}
       <View style={styles.visorContainer}>
         <Text style={styles.textoNotaDisplay}>{notaAtual}</Text>
+        {/* exibe status no visor (modo livre ou alvo) */}
+        <Text style={styles.statusTexto}>{statusTexto}</Text>
       </View>
+
+      {/* BARRA DE AFINAÇÃO (RESPONSIVA) */}
+      <View style={styles.tuningBarContainer}>
+        <View style={styles.tuningBar}>
+          {/* Indicator: left is percentage. We map cents (-50..+50) to 0..100% with center at 50% */}
+          <View
+            style={[
+              styles.tuningIndicator,
+              {
+                left: `${indicatorPercent}%`,
+                backgroundColor: indicatorColor,
+                // ajusta ancoragem: transform para centralizar pela metade da largura do indicador
+                transform: [{ translateX: -12 }], // desloca metade do width do indicador (ajuste se mudar width)
+              }
+            ]}
+          />
+          {/* center marker */}
+          <View style={styles.centerMarker} />
+        </View>
+
+        <Text style={styles.centsText}>
+          {notaAlvo ? `${Math.round(cents)} cents` : `${Math.round(cents)} cents (Modo Livre)`}
+        </Text>
+      </View>
+
       <View style={styles.notasPresetContainer}>
         {notasDoPresetAtual.length > 0 ? (
           notasDoPresetAtual.map((nota, index) => (
@@ -579,7 +468,7 @@ const App = () => {
 };
 
 
-// Estilos (sem alterações)
+// Estilos (sem alterações + novos estilos da barra)
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#121212', alignItems: 'center' },
     tituloApp: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginVertical: 15 },
@@ -596,6 +485,7 @@ const styles = StyleSheet.create({
     botaoSelecionado: { backgroundColor: '#1DB954' },
     visorContainer: { width: 250, height: 250, borderRadius: 125, backgroundColor: '#1E1E1E', justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: '#333333', marginBottom: 20 },
     textoNotaDisplay: { fontSize: 100, fontWeight: 'bold', color: '#FFFFFF' },
+    statusTexto: { color: '#A0A0A0', fontSize: 16, marginTop: 6 },
     notasPresetContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10, flexWrap: 'wrap', marginTop: 10, width: '95%' },
     botaoNotaAlvo: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#282828', justifyContent: 'center', alignItems: 'center', margin: 8, borderWidth: 2, borderColor: '#444' },
     textoBotaoNotaAlvo: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
@@ -616,6 +506,56 @@ const styles = StyleSheet.create({
     modalButton: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center', marginHorizontal: 5 },
     cancelButton: { backgroundColor: '#555' },
     saveButton: { backgroundColor: '#1DB954' },
+
+    /* Novos estilos para a barra de afinação (maior e mais visível) */
+    tuningBarContainer: {
+      width: '90%',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+
+    tuningBar: {
+      width: '100%',
+      height: 36,            // Aumentei a altura para ser mais visível
+      backgroundColor: '#222',
+      borderRadius: 18,
+      position: 'relative',
+      overflow: 'hidden',
+      justifyContent: 'center',
+    },
+
+    tuningIndicator: {
+      position: 'absolute',
+      width: 24,            // indicador mais largo para facilitar visualização
+      height: 48,           // indicador alto (sobressai da barra)
+      backgroundColor: '#1DB954',
+      top: -6,
+      borderRadius: 6,
+      // transform é aplicado inline para centralizar o indicador no % calculado
+      elevation: 6,
+      shadowColor: '#000',
+      shadowOpacity: 0.4,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 2 },
+    },
+
+    centerMarker: {
+      position: 'absolute',
+      left: '50%',
+      width: 3,
+      height: 48,
+      marginLeft: -1.5,
+      backgroundColor: '#666',
+      opacity: 0.9,
+      top: -6,
+      borderRadius: 2,
+    },
+
+    centsText: {
+      color: '#FFFFFF',
+      fontSize: 18,
+      marginTop: 10,
+    },
 });
 
 export default App;
