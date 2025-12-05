@@ -21,7 +21,7 @@ const { AudioCapture, AudioEmitter } = NativeModules;
 // --- DADOS DE FREQUÊNCIA E PRESETS ---
 
 // 1. Mapa COMPLETO de Frequências (Movido para fora para ser acessível globalmente)
-const NOTES_TO_HZ: { [key: string]: number } = {
+export const NOTES_TO_HZ: { [key: string]: number } = {
   // Oitava 0
   'C0': 16.35, 'C#0': 17.32, 'D0': 18.35, 'D#0': 19.45, 'E0': 20.60,
   'F0': 21.83, 'F#0': 23.12, 'G0': 24.50, 'G#0': 25.96, 'A0': 27.50, 'A#0': 29.14, 'B0': 30.87,
@@ -58,7 +58,7 @@ const INSTRUMENTOS = Object.keys(AFINACOES_INICIAIS);
 const ehNotaValida = (nota: string): boolean => /^[A-G](b|#)?[0-8]?$/i.test(nota.trim());
 
 // Função frequencyToNote (agora usa o mapa global)
-const frequencyToNote = (freq: number): string => {
+export const frequencyToNote = (freq: number): string => {
   if (freq < 10) return '--';
 
   let closestNote = '--';
@@ -82,7 +82,7 @@ const frequencyToNote = (freq: number): string => {
 };
 
 // Função para calcular diferença em cents entre duas frequências
-const getCentsDiff = (freq: number, targetFreq: number): number => {
+export const getCentsDiff = (freq: number, targetFreq: number): number => {
   if (!freq || !targetFreq) return 0;
   return 1200 * Math.log2(freq / targetFreq);
 };
